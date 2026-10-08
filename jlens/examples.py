@@ -60,7 +60,7 @@ def load_wikitext_prompts(n_prompts: int, *, min_chars: int = 600) -> list[str]:
     return prompts
 
 
-def resolve_prompt(example: Example, tokenizer: Any) -> str:
+def resolve_prompt(example: Example, tokenizer: Any, enable_thinking: bool=True, reasoning_effort: str = 'medium') -> str:
     """Return the final prompt string for ``example``. Chat-mode examples are
     formatted with ``tokenizer.apply_chat_template``."""
     if example.user is None:
@@ -77,7 +77,9 @@ def resolve_prompt(example: Example, tokenizer: Any) -> str:
             messages, tokenize=False, continue_final_message=True
         )
     return tokenizer.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
+        messages, tokenize=False, add_generation_prompt=True,
+        enable_thinking=enable_thinking,
+        reasoning_effort=reasoning_effort,
     )
 
 
