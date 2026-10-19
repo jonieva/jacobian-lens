@@ -39,7 +39,7 @@ class Example:
     n_tracked: int | None = None
 
 
-def load_wikitext_prompts(n_prompts: int, *, min_chars: int = 600) -> list[str]:
+def load_wikitext_prompts(n_prompts: int, dataset=None, *, min_chars: int = 600) -> list[str]:
     """Return the first ``n_prompts`` WikiText-103 records of at least
     ``min_chars`` characters, streamed from the HuggingFace Hub (requires
     ``datasets``)."""
@@ -47,9 +47,11 @@ def load_wikitext_prompts(n_prompts: int, *, min_chars: int = 600) -> list[str]:
         return []
     from datasets import load_dataset
 
-    dataset = load_dataset(
-        "Salesforce/wikitext", "wikitext-103-raw-v1", split="train", streaming=True
-    )
+    if dataset is None:
+        dataset = load_dataset(
+            "Salesforce/wikitext", "wikitext-103-raw-v1", split="train", streaming=True
+        )
+        
     prompts: list[str] = []
     for record in dataset:
         text = record["text"]

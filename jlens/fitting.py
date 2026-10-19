@@ -30,6 +30,7 @@ import time
 from collections.abc import Sequence
 
 import torch
+import tqdm
 
 from jlens.hooks import ActivationRecorder
 from jlens.lens import JacobianLens
@@ -327,7 +328,7 @@ def fit(
             )
 
     sqrt_d = math.sqrt(d_model)
-    for prompt_idx, prompt in enumerate(prompts):
+    for prompt_idx, prompt in tqdm.tqdm(enumerate(prompts), total=len(prompts)):
         if prompt_idx < next_idx:
             continue
         start_time = time.perf_counter()

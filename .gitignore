@@ -1,4 +1,6 @@
 __pycache__/
+.*
+!.gitignore
 *.py[cod]
 *.egg-info/
 build/

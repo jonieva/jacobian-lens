@@ -188,6 +188,8 @@ class SliceData:
     pinned_token_ids: list[int] = field(default_factory=list)
     #: Index of the first slice position within the full prompt.
     ctx_offset: int = 0
+    #: Optional text to append to the prompt in the visualization.
+    response_prompt: str | None = None
 
 
 @torch.no_grad()
@@ -196,6 +198,7 @@ def compute_slice(
     lens: JacobianLens,
     prompt: str,
     *,
+    response_prompt: str | None = None,
     top_n: int = 10,
     max_tracked: int | None = None,
     pinned_token_ids: set[int] | None = None,
@@ -210,6 +213,7 @@ def compute_slice(
         model: The model to read out from.
         lens: A fitted :class:`~jlens.lens.JacobianLens`.
         prompt: Input text.
+        response_prompt: Optional text to append to the prompt (e.g. model response).
         top_n: Top tokens kept per ``(position, layer)`` cell.
         mask_display: Restrict displayed top-K to word-like tokens (ranks stay
             full-vocab).
@@ -238,7 +242,10 @@ def compute_slice(
         layers.append(final_layer)
     layers = sorted(set(layers))
 
-    input_ids = model.encode(prompt, max_length=max_seq_len)
+    text_to_encode = prompt
+    if response_prompt is not None:
+        text_to_encode += response_prompt
+    input_ids = model.encode(text_to_encode, max_length=max_seq_len)
     full_len = input_ids.shape[1]
     start = 0 if last_n_tokens is None else max(0, full_len - last_n_tokens)
     seq_len = full_len - start
@@ -297,6 +304,7 @@ def compute_slice(
         score_by_token[int(token_id)] = score_by_token.get(int(token_id), 0.0) + 1.0 / (
             int(rank) + 1
         )
+        
     by_score = sorted(score_by_token, key=score_by_token.__getitem__, reverse=True)
     tracked = sorted(set(by_score[:max_tracked]) | pinned_token_ids)
 
@@ -333,6 +341,7 @@ def compute_slice(
         vocab_size=vocab_size,
         pinned_token_ids=sorted(pinned_token_ids),
         ctx_offset=start,
+        response_prompt=response_prompt,
     )
 
 
@@ -350,6 +359,7 @@ def _slice_meta(
     description: str,
     pinned_token_ids: set[int] | None,
     alt_token: dict[int, str] | None = None,
+    response_prompt: str | None = None,
 ) -> dict:
     """Everything the page needs that isn't the per-cell ``(ctx, layer, token)``
     grid: context strings, layer list, vocab fragment, tracked/pinned IDs.
@@ -358,10 +368,15 @@ def _slice_meta(
     (e.g. an English gloss for a non-Latin token); the page renders these as
     ``token (alt)`` wherever the token appears."""
     pinned = (pinned_token_ids or set()) & set(slice_data.tracked_token_ids)
+    
+    display_prompt = prompt
+    if response_prompt:
+        display_prompt += f"\n\n*** RESPONSE ***\n{response_prompt}"
+
     meta = {
         "title": title,
         "what": description,
-        "prompt": prompt,
+        "prompt": display_prompt,
         "T": slice_data.seq_len,
         "layers": slice_data.layers,
         "top_n": slice_data.top_ids.shape[2],
@@ -400,6 +415,7 @@ def write_slice_files(
     description: str,
     pinned_token_ids: set[int] | None = None,
     alt_token: dict[int, str] | None = None,
+    response_prompt: str | None = None,
 ) -> None:
     """Write the sidecar files a ``mode="fetch"`` page reads: ``meta.json``,
     ``slice.bin``, and one ``ranks/{token_id}.bin`` (gzip'd ``[seq_len,
@@ -410,7 +426,7 @@ def write_slice_files(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     meta = _slice_meta(
-        slice_data, prompt, title, description, pinned_token_ids, alt_token
+        slice_data, prompt, title, description, pinned_token_ids, alt_token, response_prompt
     )
     (out_dir / "meta.json").write_text(
         json.dumps(meta, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
@@ -435,6 +451,7 @@ def build_page(
     mode: PageMode = "embed",
     out_dir: str | Path | None = None,
     alt_token: dict[int, str] | None = None,
+    response_prompt: str | None = None,
 ) -> tuple[str, int, int]:
     """Render ``slice_data`` into an HTML page.
 
@@ -456,6 +473,7 @@ def build_page(
               on pin; d3 loads from CDN. Requires ``out_dir``. Suited to
               static hosting; also accepts a ``?datapath=`` URL param.
         out_dir: Where to write sidecar files for ``"fetch"``.
+        response_prompt: Optional text to append to the prompt in the visualization.
 
     Returns:
         ``(html, raw_bytes, payload_bytes)``.
@@ -463,7 +481,7 @@ def build_page(
     if pinned_token_ids is None:
         pinned_token_ids = set(slice_data.pinned_token_ids)
     meta = _slice_meta(
-        slice_data, prompt, title, description, pinned_token_ids, alt_token
+        slice_data, prompt, title, description, pinned_token_ids, alt_token, response_prompt
     )
     bootstrap: dict
     raw_bytes = payload_bytes = 0
@@ -497,6 +515,7 @@ def build_page(
             description=description,
             pinned_token_ids=pinned_token_ids,
             alt_token=alt_token,
+            response_prompt=response_prompt,
         )
         bootstrap = {"mode": "fetch"}
         payload_bytes = (Path(out_dir) / "slice.bin").stat().st_size

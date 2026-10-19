@@ -41,6 +41,7 @@ class JacobianLens:
         self.source_layers = sorted(self.jacobians)
         self.n_prompts = n_prompts
         self.d_model = d_model
+        self.description = ""
 
     def __repr__(self) -> str:
         return (
