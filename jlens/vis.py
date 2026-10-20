@@ -128,7 +128,7 @@ def _ranks_of(
 _MEANINGFUL_MASK_CACHE: dict[tuple[int, int], torch.Tensor] = {}
 
 
-def _meaningful_token_mask(
+def meaningful_token_mask(
     tokenizer, vocab_size: int, device: torch.device
 ) -> torch.Tensor:
     """Vocab mask: ``True`` for tokens that decode to word characters. Used by
@@ -284,7 +284,7 @@ def compute_slice(
             top_ranks[:, layer_idx] = np.arange(top_n, dtype=np.int32)
         else:
             if display_mask is None:
-                display_mask = _meaningful_token_mask(
+                display_mask = meaningful_token_mask(
                     tokenizer, vocab_size, logits.device
                 )
             top_idx = (
