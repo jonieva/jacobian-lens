@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import json as _json
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from importlib.resources import files
 from typing import Any
 
@@ -31,12 +31,25 @@ class Example:
 
     slug: str
     section: str
-    description: str
+    description: str = ""
     prompt: str | None = None
     system: str | None = None
     user: str | None = None
     assistant_prefill: str = ""
     n_tracked: int | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the example to a dictionary of all its fields."""
+        return asdict(self)
+
+
+def load_examples_from_yaml(yaml_path: str | Any) -> list[Example]:
+    """Load the YAML file back into a list of :class:`Example` instances."""
+    import yaml
+
+    with open(yaml_path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    return [Example(**item) for item in data]
 
 
 def load_wikitext_prompts(n_prompts: int, dataset=None, *, min_chars: int = 600) -> list[str]:
@@ -62,27 +75,53 @@ def load_wikitext_prompts(n_prompts: int, dataset=None, *, min_chars: int = 600)
     return prompts
 
 
-def resolve_prompt(example: Example, tokenizer: Any, enable_thinking: bool=True, reasoning_effort: str = 'medium') -> str:
+def resolve_prompt(
+    example: Example,
+    tokenizer: Any,
+    enable_thinking: bool = True,
+    reasoning_effort: str = "medium",
+) -> str:
     """Return the final prompt string for ``example``. Chat-mode examples are
     formatted with ``tokenizer.apply_chat_template``."""
     if example.user is None:
         if example.prompt is None:
             raise ValueError(f"example {example.section!r} has neither prompt nor user")
         return example.prompt
+
+    if getattr(tokenizer, "chat_template", None) is None:
+        parts: list[str] = []
+        if example.system:
+            parts.append(example.system)
+        parts.append(example.user)
+        if example.assistant_prefill:
+            parts.append(example.assistant_prefill)
+        return "\n\n".join(parts)
+
     messages: list[dict] = []
     if example.system:
         messages.append({"role": "system", "content": example.system})
     messages.append({"role": "user", "content": example.user})
     if example.assistant_prefill:
         messages.append({"role": "assistant", "content": example.assistant_prefill})
+        try:
+            return tokenizer.apply_chat_template(
+                messages, tokenize=False, continue_final_message=True
+            )
+        except Exception:
+            return tokenizer.apply_chat_template(messages, tokenize=False)
+
+    try:
         return tokenizer.apply_chat_template(
-            messages, tokenize=False, continue_final_message=True
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=enable_thinking,
+            reasoning_effort=reasoning_effort,
         )
-    return tokenizer.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True,
-        enable_thinking=enable_thinking,
-        reasoning_effort=reasoning_effort,
-    )
+    except Exception:
+        return tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
 
 
 _ASCII_FACE = "\n".join(

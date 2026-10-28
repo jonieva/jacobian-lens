@@ -14,3 +14,4 @@ dist/
 *.pt
 slice*.html
 slices/
+data/experiments

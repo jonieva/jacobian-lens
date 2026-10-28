@@ -4,7 +4,17 @@ from typing import Any, Generator, List, Union
 import torch
 import torch.nn.functional as F
 
+from jlens.hf import _find_layout, _resolve_attr_path
 from jlens.protocol import LensModel
+
+
+def _get_layers_and_lm_head(model: Any) -> tuple[Any, Any]:
+    """Return ``(layers, lm_head)`` for either an :class:`HFLensModel` or a raw HF model."""
+    if hasattr(model, "layers") and hasattr(model, "_lm_head"):
+        return model.layers, model._lm_head
+    layout = _find_layout(model)
+    text_module = _resolve_attr_path(model, layout.path)
+    return getattr(text_module, layout.layers), getattr(model, layout.lm_head)
 
 
 def get_jacobian_token_direction(
@@ -21,7 +31,8 @@ def get_jacobian_token_direction(
     Returns:
         A normalized tensor representing the pullback direction.
     """
-    w_u = model.lm_head.weight[token_id].to(torch.float32)
+    _, lm_head = _get_layers_and_lm_head(model)
+    w_u = lm_head.weight[token_id].to(torch.float32)
     J_l = lens.jacobians[layer_idx].to(device=w_u.device, dtype=torch.float32)
     direction = J_l.T @ w_u
     return F.normalize(direction, p=2, dim=-1)
@@ -83,8 +94,7 @@ def ablate_jacobian_direction(
         return hook_fn
 
     # Register forward hooks on the decoder blocks
-    # (For Hugging Face Qwen/Llama: model.model.layers or model.transformer.h)
-    layer_modules = getattr(model, "model", model).layers
+    layer_modules, _ = _get_layers_and_lm_head(model)
     for l in layers:
         hook = layer_modules[l].register_forward_hook(make_hook(l))
         hooks.append(hook)
@@ -120,7 +130,8 @@ def swap_jacobian_directions(
         None.
     """
     hooks = []
-    device = next(model.parameters()).device
+    layer_modules, lm_head = _get_layers_and_lm_head(model)
+    device = lm_head.weight.device
 
     # Precompute unit direction vectors mapped to target device
     src_dirs = {
@@ -160,7 +171,6 @@ def swap_jacobian_directions(
         return hook_fn
 
     # Register forward hooks on the decoder blocks
-    layer_modules = getattr(model, "model", model).layers
     for l in layers:
         hook = layer_modules[l].register_forward_hook(make_hook(l))
         hooks.append(hook)
