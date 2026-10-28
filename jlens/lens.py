@@ -101,7 +101,13 @@ class JacobianLens:
             name_or_path = snapshot_download(
                 name_or_path, allow_patterns=[filename], revision=revision
             )
-        return cls.load(os.path.join(name_or_path, filename))
+        target_path = os.path.join(name_or_path, filename)
+        if not os.path.isfile(target_path):
+            raise FileNotFoundError(
+                f"Lens file {filename!r} was not found in HuggingFace repo/dir {name_or_path!r} "
+                f"(revision={revision!r})."
+            )
+        return cls.load(target_path)
 
     @classmethod
     def merge(cls, lenses: Sequence[JacobianLens]) -> JacobianLens:

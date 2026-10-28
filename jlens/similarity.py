@@ -100,8 +100,15 @@ DEFAULT_HUB_LENS_FILES: dict[str, str] = {
     "google/gemma-2-27b": "gemma-2-27b/jlens/Salesforce-wikitext/gemma-2-27b_jacobian_lens.pt",
     "google/gemma-2-27b-it": "gemma-2-27b-it/jlens/Salesforce-wikitext/gemma-2-27b-it_jacobian_lens.pt",
     # Gemma 3 & Gemma 4 models
+    "google/gemma-3-1b-it": "gemma-3-1b-it/jlens/Salesforce-wikitext/gemma-3-1b-it_jacobian_lens.pt",
+    "google/gemma-3-1b-pt": "gemma-3-1b/jlens/Salesforce-wikitext/gemma-3-1b-pt_jacobian_lens.pt",
+    "google/gemma-3-4b-it": "gemma-3-4b-it/jlens/Salesforce-wikitext/gemma-3-4b-it_jacobian_lens.pt",
+    "google/gemma-3-4b-pt": "gemma-3-4b/jlens/Salesforce-wikitext/gemma-3-4b-pt_jacobian_lens.pt",
     "google/gemma-3-12b-it": "gemma-3-12b-it/jlens/Salesforce-wikitext/gemma-3-12b-it_jacobian_lens.pt",
     "google/gemma-3-12b-pt": "gemma-3-12b/jlens/Salesforce-wikitext/gemma-3-12b-pt_jacobian_lens.pt",
+    "google/gemma-3-27b-it": "gemma-3-27b-it/jlens/Salesforce-wikitext/gemma-3-27b-it_jacobian_lens.pt",
+    "google/gemma-3-27b-pt": "gemma-3-27b/jlens/Salesforce-wikitext/gemma-3-27b-pt_jacobian_lens.pt",
+    "google/gemma-3-27b": "gemma-3-27b/jlens/Salesforce-wikitext/gemma-3-27b_jacobian_lens.pt",
     "google/gemma-4-E2B-it": "gemma-4-e2b/jlens/Salesforce-wikitext/gemma-4-E2B_jacobian_lens.pt",
     "google/gemma-4-E2B": "gemma-4-e2b/jlens/Salesforce-wikitext/gemma-4-E2B_jacobian_lens.pt",
     "google/gemma-4-E4B-it": "gemma-4-e4b/jlens/Salesforce-wikitext/gemma-4-E4B_jacobian_lens.pt",
@@ -111,10 +118,10 @@ DEFAULT_HUB_LENS_FILES: dict[str, str] = {
 }
 
 
-def resolve_hub_lens_filename(model_name: str | None) -> str:
+def resolve_hub_lens_filename(model_name: str | None) -> str | None:
     """Resolve the default filename in neuronpedia/jacobian-lens for a given model."""
     if not model_name:
-        return "lens.pt"
+        return None
     if model_name in DEFAULT_HUB_LENS_FILES:
         return DEFAULT_HUB_LENS_FILES[model_name]
     # Check exact/substring match from most specific to least specific
@@ -123,7 +130,7 @@ def resolve_hub_lens_filename(model_name: str | None) -> str:
         base = key.split("/")[-1].lower()
         if base in model_name.lower():
             return DEFAULT_HUB_LENS_FILES[key]
-    return "lens.pt"
+    return None
 
 
 def load_lens(
@@ -165,6 +172,17 @@ def load_lens(
     # 3. HuggingFace Hub repo
     if lens:
         filename = lens_filename or resolve_hub_lens_filename(model_name)
+        if not filename:
+            if "neuronpedia" in lens:
+                known_models = "\n  - " + "\n  - ".join(sorted(DEFAULT_HUB_LENS_FILES.keys()))
+                raise ValueError(
+                    f"Could not automatically resolve default lens filename for model {model_name!r} "
+                    f"in HuggingFace repo {lens!r}.\n"
+                    f"Please specify --lens-filename explicitly (e.g. '<model_dir>/jlens/Salesforce-wikitext/<model>_jacobian_lens.pt').\n"
+                    f"Known models in {lens!r}:{known_models}"
+                )
+            filename = "lens.pt"
+
         revision = lens_revision
         if revision is None and "neuronpedia" in lens:
             revision = "qwen-n1000" if (model_name and "qwen" in model_name.lower()) else "main"
