@@ -154,8 +154,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--max-seq-len",
         type=int,
-        default=1024,
-        help="Maximum sequence length when encoding full prompts (default: 1024).",
+        default=4096,
+        help="Maximum sequence length when encoding full prompts (default: 4096).",
     )
     parser.add_argument(
         "--reasoning-effort",
@@ -184,6 +184,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "Must provide a lens: pass a custom lens file via --lens or --lens-filename, "
             "or a HuggingFace Hub repo via --lens."
         )
+    min_required_seq_len = args.max_new_tokens + 512
+    if args.max_seq_len < min_required_seq_len:
+        args.max_seq_len = min_required_seq_len
     return args
 
 
