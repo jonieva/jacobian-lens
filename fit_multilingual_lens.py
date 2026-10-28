@@ -119,7 +119,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=None,
         help=(
             "Output path for the fitted .pt lens file. Defaults to "
-            "'jlens/computed/<model_name>/<model_name>_<langs>_lens.pt'."
+            "'data/computed_lens/<model_name>/<model_name>_<langs>_lens.pt'."
         ),
     )
     parser.add_argument(
@@ -131,8 +131,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--checkpoint-every",
         type=int,
-        default=1,
-        help="Save checkpoint every N prompts (default: 1).",
+        default=200,
+        help="Save checkpoint every N prompts (default: 200).",
     )
     parser.add_argument(
         "--no-resume",
@@ -207,7 +207,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     lang_summary = "_".join(f"{args.n_prompts_per_lang}{lang}" for lang in args.languages)
 
     if args.output is None:
-        folder = Path(f"jlens/computed/{model_short_name}")
+        folder = Path(f"data/computed_lens/{model_short_name}")
         output_file = folder / f"{model_short_name}_{lang_summary}_lens.pt"
     else:
         output_file = Path(args.output)
