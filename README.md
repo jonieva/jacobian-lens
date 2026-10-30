@@ -1,9 +1,9 @@
 # jlens — Jacobian lens
 
-> **Reference implementation.** Not maintained and not accepting contributions.
-
-Companion code for [**Verbalizable Representations Form a Global Workspace in
+Extension of the Anthropic companion code for  [**Verbalizable Representations Form a Global Workspace in
 Language Models**](https://transformer-circuits.pub/2026/workspace/index.html).
+
+Main contribution: Added functionality to study the differences in the J-space in a multilanguage context.
 
 The Jacobian lens reads out what an internal activation is disposed to make the
 model say. It linearly transports a residual-stream vector at any layer and
