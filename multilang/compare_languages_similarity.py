@@ -203,7 +203,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             args.model, dtype=torch.bfloat16
         ).to(args.device)
     except (ValueError, KeyError):
-        hf_model = transformers.AutoModelForConditionalGeneration.from_pretrained(
+        hf_model = transformers.AutoModelForConditionalGeneration.from_pretrained(  # type: ignore
             args.model, dtype=torch.bfloat16
         ).to(args.device)
     tokenizer = transformers.AutoTokenizer.from_pretrained(args.model)

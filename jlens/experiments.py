@@ -28,6 +28,8 @@ import torch
 import torch.nn.functional as F
 from tqdm.auto import tqdm
 
+from transformers import PreTrainedModel
+
 from jlens.examples import Example, load_examples_from_yaml
 from jlens.generation import (
     get_model_response,
@@ -36,6 +38,7 @@ from jlens.generation import (
     get_token_position_after_think_block,
     resolve_prompt_extended,
 )
+from jlens.hf import HFLensModel
 from jlens.lens import JacobianLens
 from jlens.protocol import LensModel
 from jlens.readout import extract_residuals_at_position
@@ -104,8 +107,8 @@ def pair_examples_by_slug(
 
 
 def generate_and_extract_readouts(
-    hf_model: Any,
-    model: LensModel,
+    hf_model: PreTrainedModel,
+    model: HFLensModel,
     lens: JacobianLens,
     example: Example,
     language: str,
@@ -116,11 +119,36 @@ def generate_and_extract_readouts(
     reasoning_effort: str = "medium",
     max_new_tokens: int = 3000,
     max_seq_len: int = 4000,
-    max_retries: int = 3,
     top_k: int = 10,
     mask_display: bool = True,
 ) -> list[GeneratedPromptReadout]:
-    """Resolve ``example``, generate ``n_samples`` responses in a single batched call, and extract per-layer residuals."""
+    """
+    Resolves an example, generates multiple responses, and extracts layer-wise residuals.
+
+    This function orchestrates the full pipeline of generating text from a model (with 
+    optional reasoning/thinking capabilities) and then uses the provided Jacobian lens 
+    to extract the residual contributions from specific model layers during the 
+    generation process.
+
+    Args:
+        hf_model: The underlying HuggingFace Lens model instance used for generation.
+        model: The LensModel wrapper containing the model architecture.
+        lens: The JacobianLens used to compute and extract layer-wise residuals.
+        example: The input example containing the prompt and context.
+        language: The target language for generation/extraction.
+        layers: A sequence of layer indices for which to extract residuals.
+        n_samples: Number of independent completions to generate.
+        enable_thinking: Whether to use models that support internal reasoning/thinking steps.
+        reasoning_effort: Complexity level for reasoning (e.g., "low", "medium", "high").
+        max_new_tokens: Maximum number of tokens to generate per sample.
+        max_seq_len: Maximum total sequence length (prompt + generation).
+        top_k: Top-k sampling parameter for generation.
+        mask_display: Whether to include attention mask information in the output.
+
+    Returns:
+        A list of `GeneratedPromptReadout` objects, where each object contains the 
+        generated text and the corresponding layer-wise residual data.
+    """
     if n_samples <= 0:
         return []
     tokenizer = model.tokenizer
@@ -211,7 +239,6 @@ def generate_and_extract_readout(
     reasoning_effort: str = "medium",
     max_new_tokens: int = 3000,
     max_seq_len: int = 4000,
-    max_retries: int = 3,
     top_k: int = 10,
     mask_display: bool = True,
 ) -> GeneratedPromptReadout:
@@ -228,7 +255,6 @@ def generate_and_extract_readout(
         reasoning_effort=reasoning_effort,
         max_new_tokens=max_new_tokens,
         max_seq_len=max_seq_len,
-        max_retries=max_retries,
         top_k=top_k,
         mask_display=mask_display,
     )[0]
@@ -455,8 +481,8 @@ EXPERIMENT_CSV_COLUMNS: list[str] = [
 
 
 def run_comparison_experiment(
-    hf_model: Any,
-    model: LensModel,
+    hf_model: PreTrainedModel,
+    model: HFLensModel,
     lens: JacobianLens,
     en_yaml_path: str | Path,
     es_yaml_path: str | Path,
@@ -614,7 +640,7 @@ def run_comparison_experiment(
 
 
 def recompute_experiment_from_csv(
-    model: LensModel,
+    model: HFLensModel,
     lens: JacobianLens,
     input_csv_path: str | Path,
     output_csv_path: str | Path,
