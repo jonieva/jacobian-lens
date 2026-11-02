@@ -5,6 +5,9 @@ Language Models**](https://transformer-circuits.pub/2026/workspace/index.html).
 
 Main contribution: Added functionality to study the differences in the J-space in a multilanguage context.
 
+For those interested, there is a small summary of the work done with this repo in my  [Substack](https://jonieva.substack.com/p/the-j-space-sounds-promising-but?r=1ahace&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true).
+
+
 The Jacobian lens reads out what an internal activation is disposed to make the
 model say. It linearly transports a residual-stream vector at any layer and
 position into the final-layer basis, then decodes it with the model's own
